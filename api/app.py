@@ -7,12 +7,10 @@ import xgboost as xgb
 import os
 from data_process_live import create_is_luxury_column, add_luxury_and_popularity_features
 import config
-
+from flask_cors import CORS
 from google.cloud import storage
 import joblib
 import xgboost as xgb
-import os
-
 import os
 from google.cloud import storage
 
@@ -40,11 +38,11 @@ def download_model(bucket_name, source_blob_name, local_path):
 
 # Download models from Cloud Storage
 if not os.path.exists("models/saved_pipeline.pkl"):
-    download_model("car-price-prediction-models", "saved_pipeline.pkl", "models/saved_pipeline.pkl")
+    download_model("car-price-prediction-models", "models/saved_pipeline.pkl", "models/saved_pipeline.pkl")
 
 
 if not os.path.exists("models/saved_xgb_model.json"):
-    download_model("car-price-prediction-models", "saved_xgb_model.json", "models/saved_xgb_model.json")
+    download_model("car-price-prediction-models", "models/saved_xgb_model.json", "models/saved_xgb_model.json")
 
 # Load models
 pipeline = joblib.load(config.pipeline_save_path)
@@ -56,6 +54,7 @@ pipeline.named_steps['xgb'].regressor_ = xgb_model
 
 # Initialize Flask app
 app = Flask(__name__)
+CORS(app, resources={r"/predict": {"origins": "https://datawithamber.com"}})
 
 # Helper function to preprocess live data
 def preprocess_live_data(X):
@@ -71,25 +70,15 @@ def preprocess_live_data(X):
       X[col] = pd.to_numeric(X[col], errors='coerce')
 
     current_year = datetime.now().year
-
-    bins = [0, 50000, 100000, 150000, np.inf]
-    labels = ['low', 'medium', 'high', 'very high']
-
-    #listingyear
     X['listing_year'] = current_year
     X = create_is_luxury_column(X)
-
-    # Car Age
     X['car_age'] = current_year - X['year']
-
-    # Handle missing listing_month
     current_month = datetime.now().month
     if 'listing_month' not in X.columns:
         X['listing_month'] = current_month  # Default to the current month if missing
     else:
         X['listing_month'] = X['listing_month'].fillna(current_month)
 
-    # Fuel Type One-Hot Encoding
     fuel_types = ['bifuel', 'diesel', 'hybrid', 'petrol']
     for fuel in fuel_types:
         X[f'fuel_{fuel}'] = 0  # Initialize columns with 0
@@ -97,16 +86,6 @@ def preprocess_live_data(X):
         for fuel in fuel_types:
             X[f'fuel_{fuel}'] = (X['fuel_type'] == fuel).astype(int)
 
-    X['mileage_bin'] = pd.cut(X['mileage'], bins=bins, labels=labels, right=False)
-
-    # One-hot encode 'mileage_bin'
-    mileage_bin_columns = ['mileage_bin_1', 'mileage_bin_2', 'mileage_bin_3', 'mileage_bin_4']
-    for col in mileage_bin_columns:
-        X[col] = 0  # Initialize columns with 0
-    for i, label in enumerate(labels):
-        X[f'mileage_bin_{i + 1}'] = (X['mileage_bin'] == label).astype(int)
-
-    # Handle countries (example with dummy data)
     country_columns = [
         'country_germany', 'country_spain', 'country_france', 'country_ukraine',
         'country_russia', 'country_sweden', 'country_italy', 'country_czech republic',
@@ -124,17 +103,13 @@ def preprocess_live_data(X):
                 X[col] = 0  # Ensure all expected columns are present
     
     X['gearbox_type_automatic'] = (X['gear_type'].str.lower() == 'automatic').astype(int)
-
-    # Additional preprocessing
     X['log_mileage'] = np.log(X['mileage'] + 1)
     X['luxury_age_interaction'] = X['is_luxury'] * X['car_age']
-    X['age_auto_interaction'] = X['gearbox_type_automatic'] * X['car_age']
     X['age_engine_interaction'] = X['engine'] * X['car_age']
     X['lux_auto_interaction'] = X['gearbox_type_automatic'] * X['is_luxury']
     X['age_mileage_interaction'] = X['car_age'] * X['log_mileage']
 
     return X  
-
 
 @app.route('/predict', methods=['POST'])
 def predict_single():
@@ -182,5 +157,6 @@ def predict_bulk():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=True)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))  # Default to 8080 if PORT is not set
+    app.run(host="0.0.0.0", port=port)
