@@ -25,10 +25,10 @@ jobs:
 
       - name: Build Docker Image
         run: docker build -t amberwalker/used-car-price-pred-app/flask-app:latest .
-
       - name: Push Docker Image
-        run: docker push amberwalker/used-car-price-pred-app/flask-app:latest
-
+        run: |
+          docker push amberwalker/used-car-price-pred-app:latest
+      
       - name: Deploy to Google Cloud Run
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
