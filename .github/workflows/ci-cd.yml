@@ -43,13 +43,12 @@ jobs:
           echo $GOOGLE_APPLICATION_CREDENTIALS | base64 --decode > key.json
           gcloud auth activate-service-account --key-file=key.json
           gcloud config set project used-car-price-pred-app
-          gcloud run deploy your-service-name \
-            --image docker.io/amberwalker/used-car-price-pred-app:latest \
-            --region us-central1 \
-            --platform managed \
-            --allow-unauthenticated \
-            --cpu 4 \
-            --memory 16Gi \
-            --timeout 3600 \
-            --project used-car-price-pred-app
+          gcloud run deploy used-car-price-pred-app \
+             --image docker.io/amberwalker/used-car-price-pred-app:latest \
+             --region us-central1 \
+             --platform managed \
+             --allow-unauthenticated \
+             --cpu 4 \
+             --memory 16Gi \
+             --timeout 3600
           rm key.json
