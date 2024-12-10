@@ -15,6 +15,7 @@ ENV PYTHONPATH=/app
 
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install flask_cors
 
 # Expose the port Flask will listen on
 EXPOSE 8080
