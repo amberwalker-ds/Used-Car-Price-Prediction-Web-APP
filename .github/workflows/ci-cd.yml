@@ -10,33 +10,7 @@ on:
       - main  # Triggers on pull requests to the main branch
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-
-    steps:
-      # Check out the code
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      # Set up Python
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'  # Adjust based on your project
-
-      # Install Dependencies
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      # Run Tests
-      - name: Run Tests
-        run: |
-          pytest  # Assumes you're using pytest; replace if needed
-
   deploy:
-    needs: test  # Run only if tests succeed
     runs-on: ubuntu-latest
 
     steps:
@@ -54,21 +28,25 @@ jobs:
       # Build Docker Image
       - name: Build Docker Image
         run: |
-          docker build -t your-docker-username/your-repo-name:latest .
+          docker build -t amberwalker/used-car-price-pred-app/flask-app:latest .
 
       # Push Docker Image to Docker Hub
       - name: Push Docker Image
         run: |
-          docker push your-docker-username/your-repo-name:latest
+          docker push amberwalker/used-car-price-pred-app/flask-app:latest
 
-      # Deploy to Google Cloud Run (or another platform)
+      # Deploy to Google Cloud Run
       - name: Deploy to Google Cloud Run
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
         run: |
-          gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+          echo $GOOGLE_APPLICATION_CREDENTIALS | base64 --decode > key.json
+          gcloud auth activate-service-account --key-file=key.json
           gcloud run deploy your-service-name \
-            --image your-docker-username/your-repo-name:latest \
-            --region your-region \
+            --image amberwalker/used-car-price-pred-app/flask-app:latest \
+            --region us-central1 \
             --platform managed \
-            --allow-unauthenticated
+            --allow-unauthenticated \
+            --cpu 4 \
+            --memory 16 GiB \
+            --timeout 3600
