@@ -87,7 +87,7 @@ def preprocess_live_data(X):
             X[f'fuel_{fuel}'] = (X['fuel_type'] == fuel).astype(int)
 
     country_columns = [
-        'country_germany', 'country_spain', 'country_france', 'country_ukraine',
+        'country_germany', 'country_japan', 'country_spain', 'country_france', 'country_ukraine',
         'country_russia', 'country_sweden', 'country_italy', 'country_czech republic',
         'country_unknown', 'country_uk', 'country_romania', 'country_usa', 'country_south korea'
     ]
@@ -116,8 +116,9 @@ def predict_single():
     """
     Endpoint for single-row prediction.
     """
-    data = request.json  # Expecting JSON input
     try:
+        #fetch token
+        data = request.json  # Expecting JSON input
         # Convert input to DataFrame
         df = pd.DataFrame([data])
         # Preprocess the live data
