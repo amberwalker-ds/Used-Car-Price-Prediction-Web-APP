@@ -63,11 +63,15 @@ def preprocess_live_data(X):
     """
     X = X.copy()
 
+    # Ensure `make` and `model` are preserved
+    original_columns = ['make', 'model']
+    preserved_data = X[original_columns].copy()
+
     for col in X.select_dtypes(include="object").columns:
-      X[col] = X[col].str.lower().str.replace(" ", "")
+        X[col] = X[col].str.lower().str.replace(" ", "")
 
     for col in ['year', 'mileage', 'engine']:
-      X[col] = pd.to_numeric(X[col], errors='coerce')
+        X[col] = pd.to_numeric(X[col], errors='coerce')
 
     current_year = datetime.now().year
     X['listing_year'] = current_year
@@ -101,7 +105,7 @@ def preprocess_live_data(X):
         for col in country_columns:
             if col not in X.columns:
                 X[col] = 0  # Ensure all expected columns are present
-    
+
     X['gearbox_type_automatic'] = (X['gear_type'].str.lower() == 'automatic').astype(int)
     X['log_mileage'] = np.log(X['mileage'] + 1)
     X['luxury_age_interaction'] = X['is_luxury'] * X['car_age']
@@ -109,7 +113,50 @@ def preprocess_live_data(X):
     X['lux_auto_interaction'] = X['gearbox_type_automatic'] * X['is_luxury']
     X['age_mileage_interaction'] = X['car_age'] * X['log_mileage']
 
-    return X  
+    # Reattach `make` and `model`
+    X = pd.concat([X, preserved_data], axis=1)
+
+    # Drop duplicate columns
+    X = X.loc[:, ~X.columns.duplicated()]
+
+    return X
+
+# @app.route('/predict', methods=['POST'])
+# def predict_single():
+#     """
+#     Endpoint for single-row prediction.
+#     """
+#     try:
+#         #fetch token
+#         data = request.json  # Expecting JSON input
+#         # Convert input to DataFrame
+#         df = pd.DataFrame([data])
+#         # Preprocess the live data
+#         processed_data = preprocess_live_data(df)
+#         # Get the list of features the model was trained on
+#         expected_columns = [
+#             'listing_month', 'listing_year', 'mileage', 'year', 'engine', 'car_age', 
+#             'fuel_b', 'fuel_bg', 'fuel_bifuel', 'fuel_d', 'fuel_diesel', 'fuel_e', 
+#             'fuel_electric', 'fuel_h', 'fuel_hybrid', 'fuel_petrol', 'gearbox_type_automatic',
+#             'gearbox_type_manual', 'is_luxury', 'mileage_bin_1', 'mileage_bin_2', 
+#             'mileage_bin_3', 'mileage_bin_4', 'is_suv_truck', 'is_reliable', 
+#             'popularity', 'country_czech republic', 'country_france', 'country_germany',
+#             'country_italy', 'country_japan', 'country_romania', 'country_russia',
+#             'country_south korea', 'country_spain', 'country_sweden', 'country_uk',
+#             'country_ukraine', 'country_unknown', 'country_usa', 'log_mileage', 
+#             'luxury_age_interaction', 'age_auto_interaction', 'age_engine_interaction',
+#             'lux_auto_interaction', 'age_mileage_interaction'
+#         ]
+
+#         # Add missing columns with default values and reindex
+#         processed_data = processed_data.reindex(columns=expected_columns, fill_value=0)
+#         # Predict     
+#         prediction = pipeline.predict(processed_data)
+#         # Convert prediction to Python float for JSON serialization
+#         predicted_price = round(float(prediction[0]),2)
+#         return jsonify({'predicted_price': predicted_price})
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 400
 
 @app.route('/predict', methods=['POST'])
 def predict_single():
@@ -117,18 +164,46 @@ def predict_single():
     Endpoint for single-row prediction.
     """
     try:
-        #fetch token
+        # Fetch the input data
         data = request.json  # Expecting JSON input
         # Convert input to DataFrame
         df = pd.DataFrame([data])
+        # print("Input DataFrame:")
+        # print(df)  # Debug: Print raw input data
+
         # Preprocess the live data
         processed_data = preprocess_live_data(df)
+        # print("Processed DataFrame Columns:")
+        # print(processed_data.columns.tolist())  # Debug: Print column names
+        # print("Processed DataFrame Values:")
+        # print(processed_data.head())  # Debug: Print the first few rows of processed data
+
+        # Ensure all expected columns are present
+        expected_columns = [
+            'make', 'model', 'listing_month', 'listing_year', 'mileage', 'year', 'engine', 'car_age', 
+            'fuel_b', 'fuel_bg', 'fuel_bifuel', 'fuel_d', 'fuel_diesel', 'fuel_e', 
+            'fuel_electric', 'fuel_h', 'fuel_hybrid', 'fuel_petrol', 'gearbox_type_automatic',
+            'gearbox_type_manual', 'is_luxury', 'mileage_bin_1', 'mileage_bin_2', 
+            'mileage_bin_3', 'mileage_bin_4', 'is_suv_truck', 'is_reliable', 
+            'popularity', 'country_czech republic', 'country_france', 'country_germany',
+            'country_italy', 'country_japan', 'country_romania', 'country_russia',
+            'country_south korea', 'country_spain', 'country_sweden', 'country_uk',
+            'country_ukraine', 'country_unknown', 'country_usa', 'log_mileage', 
+            'luxury_age_interaction', 'age_auto_interaction', 'age_engine_interaction',
+            'lux_auto_interaction', 'age_mileage_interaction'
+        ]
+        processed_data = processed_data.reindex(columns=expected_columns, fill_value=0)
+        # print("Reindexed DataFrame Columns:")
+        # print(processed_data.columns.tolist())  # Debug: Print column names after reindexing
+        # print("Reindexed DataFrame Values:")
+        # print(processed_data.head())  # Debug: Print the first few rows of reindexed data
+
         # Predict
         prediction = pipeline.predict(processed_data)
-        # Convert prediction to Python float for JSON serialization
-        predicted_price = round(float(prediction[0]),2)
+        predicted_price = round(float(prediction[0]), 2)
         return jsonify({'predicted_price': predicted_price})
     except Exception as e:
+        print("Error encountered:", str(e))  # Debug: Print error details
         return jsonify({'error': str(e)}), 400
 
 @app.route('/bulk-predict', methods=['POST'])
