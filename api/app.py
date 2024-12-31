@@ -124,10 +124,6 @@ def predict_single():
         # Preprocess the live data
         processed_data = preprocess_live_data(df)
         # Predict
-        # Align processed data with the expected columns of the model
-        expected_columns = pipeline.named_steps['preprocessor'].transformers_[0][1].get_feature_names_out()
-        processed_data = processed_data.reindex(columns=expected_columns, fill_value=0)
-        
         prediction = pipeline.predict(processed_data)
         # Convert prediction to Python float for JSON serialization
         predicted_price = round(float(prediction[0]),2)
